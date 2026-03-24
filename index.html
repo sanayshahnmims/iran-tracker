@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iran Peace Tracker · Polymarket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg:#0a0c0f; --bg2:#111418; --bg3:#181d22;
+    --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.14);
+    --text:#e8eaed; --muted:#6b7280; --dim:#374151;
+    --green:#10b981; --red:#ef4444; --amber:#f59e0b; --blue:#3b82f6;
+    --fh:'Syne',sans-serif; --fm:'DM Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--fm);font-size:13px;min-height:100vh;}
+  .loadbar{height:2px;background:var(--border);position:fixed;top:0;left:0;right:0;z-index:100;overflow:hidden;}
+  .loadfill{height:100%;background:var(--amber);width:0%;transition:width .4s;}
+  .hdr{border-bottom:1px solid var(--border);padding:13px 22px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);z-index:10;}
+  .hdr-l{display:flex;align-items:center;gap:10px;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--red);animation:pulse 2s infinite;flex-shrink:0;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}50%{box-shadow:0 0 0 5px rgba(239,68,68,0)}}
+  .hdr-title{font-family:var(--fh);font-size:14px;font-weight:700;}
+  .hdr-sub{font-size:10px;color:var(--muted);margin-top:1px;}
+  .hdr-r{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+  .tag{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);white-space:nowrap;}
+  .tag.ok{border-color:rgba(16,185,129,.3);color:var(--green);}
+  .tag.warn{border-color:rgba(245,158,11,.3);color:var(--amber);}
+  .tag.err{border-color:rgba(239,68,68,.3);color:var(--red);}
+  .btn{font-family:var(--fm);font-size:11px;background:none;border:1px solid var(--border2);color:var(--text);padding:4px 11px;border-radius:4px;cursor:pointer;transition:.15s;}
+  .btn:hover{background:var(--bg3);border-color:var(--amber);color:var(--amber);}
+  .main{padding:16px 22px;max-width:1200px;}
+  .st{font-family:var(--fh);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  .banner{border-radius:6px;padding:9px 13px;font-size:11px;margin-bottom:10px;line-height:1.6;display:none;}
+  .banner.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);color:#fcd34d;}
+  .banner.ok{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);color:#6ee7b7;}
+  .top-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;}
+  .ic{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
+  .ic .lbl{font-size:10px;letter-spacing:.07em;text-transform:uppercase;font-weight:600;margin-bottom:2px;}
+  .ic .lbl.raw{color:var(--blue);} .ic .lbl.nt{color:var(--red);} .ic .lbl.bl{color:var(--amber);}
+  .ic .num{font-family:var(--fh);font-size:48px;font-weight:800;line-height:1;transition:color .4s;}
+  .ic .desc{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5;}
+  .ic .note{font-size:10px;color:var(--dim);margin-top:6px;border-top:1px solid var(--border);padding-top:6px;line-height:1.6;}
+  .c-lo{color:var(--red);} .c-mid{color:var(--amber);} .c-hi{color:var(--green);}
+  .chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px 12px;margin-bottom:10px;}
+  .chdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;}
+  .cwrap{position:relative;width:100%;height:200px;}
+  .sgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:10px;}
+  .sc{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+  .sc-d{font-size:10px;color:var(--muted);margin-bottom:3px;}
+  .sc-p{font-family:var(--fh);font-size:22px;font-weight:700;line-height:1;}
+  .sc-m{font-size:10px;color:var(--dim);margin-top:2px;}
+  .bt{height:3px;background:var(--dim);border-radius:2px;margin-top:6px;overflow:hidden;}
+  .bf{height:100%;border-radius:2px;transition:width .6s;}
+  .tcol{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+  .lc{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 15px;}
+  .lchdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:4px;}
+  .le{font-size:12px;color:var(--dim);font-style:italic;}
+  .ll{max-height:220px;overflow-y:auto;}
+  .li{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;}
+  .li:last-child{border-bottom:none;padding-bottom:0;}
+  .lt{color:var(--muted);min-width:44px;flex-shrink:0;}
+  .lic{flex-shrink:0;width:12px;}
+  .lx{color:var(--text);line-height:1.5;flex:1;}
+  .up{color:var(--green);font-weight:500;} .dn{color:var(--red);font-weight:500;}
+  .wcard{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px;}
+  .wcard .chdr{padding:12px 16px 0;}
+  .wscroll{max-height:280px;overflow-y:auto;}
+  .wt{width:100%;border-collapse:collapse;}
+  .wt th{font-size:10px;color:var(--muted);text-align:left;padding:7px 14px;border-bottom:1px solid var(--border);letter-spacing:.06em;text-transform:uppercase;font-weight:400;position:sticky;top:0;background:var(--bg2);}
+  .wt th.r{text-align:right;}
+  .wt td{padding:8px 14px;border-bottom:1px solid var(--border);color:var(--text);font-size:12px;}
+  .wt td.r{text-align:right;}
+  .wt tr:last-child td{border-bottom:none;}
+  .wt tr:hover td{background:rgba(255,255,255,.02);}
+  .wy{color:var(--green);font-weight:500;} .wn{color:var(--red);font-weight:500;}
+  .sxl{color:var(--red);font-family:var(--fh);font-weight:700;}
+  .slg{color:var(--amber);font-family:var(--fh);font-weight:700;}
+  .smd{font-family:var(--fh);font-weight:700;}
+  .nr{animation:fi .4s;} @keyframes fi{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+  .we{padding:16px 14px;font-size:12px;color:var(--dim);font-style:italic;}
+  .mkcard{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px;}
+  .mkcard .chdr{padding:12px 16px 0;}
+  .mt{width:100%;border-collapse:collapse;}
+  .mt th{font-size:10px;color:var(--muted);text-align:left;padding:7px 14px;border-bottom:1px solid var(--border);letter-spacing:.06em;text-transform:uppercase;font-weight:400;}
+  .mt th.r{text-align:right;}
+  .mt td{padding:9px 14px;border-bottom:1px solid var(--border);color:var(--text);font-size:12px;}
+  .mt td.r{text-align:right;font-weight:500;}
+  .mt tr:last-child td{border-bottom:none;}
+  .mt tr:hover td{background:rgba(255,255,255,.02);}
+  .dd{font-size:9px;font-weight:500;padding:1px 5px;border-radius:2px;background:rgba(16,185,129,.15);color:var(--green);text-transform:uppercase;}
+  .di{font-size:9px;font-weight:500;padding:1px 5px;border-radius:2px;background:rgba(239,68,68,.15);color:var(--red);text-transform:uppercase;}
+  .ntb{font-size:9px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);margin-left:3px;}
+  .blb{font-size:9px;padding:1px 4px;border-radius:2px;background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.2);margin-left:3px;}
+  .footer{padding:12px 22px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+  .footer a{color:var(--muted);text-decoration:none;} .footer a:hover{color:var(--amber);}
+  @media(max-width:750px){.top-row{grid-template-columns:1fr;}.sgrid{grid-template-columns:repeat(3,minmax(0,1fr));}.tcol{grid-template-columns:1fr;}.main{padding:12px;}}
+</style>
+</head>
+<body>
+<div class="loadbar"><div class="loadfill" id="lb"></div></div>
+
+<div class="hdr">
+  <div class="hdr-l">
+    <div class="dot"></div>
+    <div>
+      <div class="hdr-title">Iran Peace Tracker</div>
+      <div class="hdr-sub">Polymarket live · dual index + whale trades</div>
+    </div>
+  </div>
+  <div class="hdr-r">
+    <div class="tag" id="sPill">connecting...</div>
+    <div class="tag" id="wPill">whales: —</div>
+    <div class="tag" id="cdPill">refresh in —</div>
+    <button class="btn" onclick="run()">↻ now</button>
+  </div>
+</div>
+
+<div class="main" style="margin-top:4px;">
+
+  <div class="banner warn" id="warnBanner"></div>
+  <div class="banner ok"   id="okBanner"></div>
+
+  <div class="top-row">
+    <div class="ic">
+      <div class="lbl raw">Raw ceasefire · Mar 31</div>
+      <div class="num c-lo" id="rawVal">—</div>
+      <div class="desc">Direct from Polymarket's Mar 31 ceasefire leg — matches their site</div>
+      <div class="note">No weighting or inversion. Pure crowd probability of a signed ceasefire this month.</div>
+    </div>
+    <div class="ic">
+      <div class="lbl nt">Near-term index · by Mar 31</div>
+      <div class="num c-lo" id="ntVal">—</div>
+      <div class="desc">Vol-weighted across <span id="ntM">4</span> markets resolving this month</div>
+      <div class="note">Higher than raw because "no ground invasion" (85% peace) is blended in.</div>
+    </div>
+    <div class="ic">
+      <div class="lbl bl">Blended index · all horizons</div>
+      <div class="num c-mid" id="blVal">—</div>
+      <div class="desc">Vol-weighted across all <span id="blM">6</span> active markets</div>
+      <div class="note">Gap vs near-term = H2 peace premium. Dec 31 ceasefire drives this (~43% weight).</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chdr">
+      <span class="st">US × Iran ceasefire — cumulative probability by date</span>
+      <span style="font-size:11px;color:var(--muted)" id="updTs">—</span>
+    </div>
+    <div class="cwrap"><canvas id="cc"></canvas></div>
+  </div>
+
+  <div class="sgrid" id="sg"></div>
+
+  <div class="tcol">
+    <div class="lc">
+      <div class="lchdr">
+        <span class="st">Odds shift alerts · ≥2%</span>
+        <span style="font-size:10px;color:var(--dim)">session</span>
+      </div>
+      <div class="ll" id="shLog"><div class="le">Monitoring — no shifts yet</div></div>
+    </div>
+    <div class="lc">
+      <div class="lchdr">
+        <div>
+          <span class="st">Whale alert log</span>
+          <div style="font-size:10px;color:var(--dim);margin-top:1px;">≥threshold · amber $10K · red $25K</div>
+        </div>
+        <span style="font-size:10px;color:var(--dim)">session</span>
+      </div>
+      <div class="ll" id="wLog"><div class="le">Waiting for large trades...</div></div>
+    </div>
+  </div>
+
+  <div class="wcard">
+    <div class="chdr" style="padding-bottom:10px;">
+      <span class="st">Recent large trades · all Iran markets</span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+          Min size:
+          <input type="range" id="thr" min="1000" max="50000" step="1000" value="5000" style="width:80px;">
+          <span id="thrV" style="min-width:36px;color:var(--text);">$5K</span>
+        </label>
+        <span style="font-size:10px;color:var(--dim)" id="wCount">—</span>
+      </div>
+    </div>
+    <div class="wscroll">
+      <table class="wt">
+        <thead><tr>
+          <th>Time</th><th>Market</th><th>Outcome / date</th>
+          <th>Side</th><th class="r">Price</th><th class="r">USDC</th>
+          <th>Trader</th><th>Tx</th>
+        </tr></thead>
+        <tbody id="wb"><tr><td colspan="8" class="we">Fetching trades...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mkcard">
+    <div class="chdr" style="padding-bottom:10px;">
+      <span class="st">Active markets · index contribution</span>
+    </div>
+    <table class="mt">
+      <thead><tr>
+        <th>Market</th><th class="r">Volume</th>
+        <th class="r">NT weight</th><th class="r">BL weight</th>
+        <th class="r">Raw odds</th><th class="r">Direction</th><th class="r">Peace %</th>
+      </tr></thead>
+      <tbody id="mb"><tr><td colspan="7" style="color:var(--dim);text-align:center;padding:18px;">Loading...</td></tr></tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="footer">
+  <span>Data: <a href="https://polymarket.com/predictions/iran" target="_blank">polymarket.com</a> · gamma-api · data-api · Auto-refresh 5 min</span>
+  <span id="fts">—</span>
+</div>
+
+<script>
+// ─── PROXY CHAIN ─────────────────────────────────────────────────────────────
+// Tries multiple strategies in order until one works.
+// Works from file://, http://, or any origin.
+
+const GAMMA = 'https://gamma-api.polymarket.com';
+const DATA  = 'https://data-api.polymarket.com';
+
+// Build proxy URLs — each wraps the target differently
+function proxyUrls(target) {
+  const enc = encodeURIComponent(target);
+  return [
+    // Strategy 1: direct (works if served from a real web server)
+    target,
+    // Strategy 2: allorigins — most reliable public proxy
+    `https://api.allorigins.win/raw?url=${enc}`,
+    // Strategy 3: corsproxy.io
+    `https://corsproxy.io/?${enc}`,
+    // Strategy 4: thingproxy
+    `https://thingproxy.freeboard.io/fetch/${target}`,
+    // Strategy 5: htmldriven cors proxy
+    `https://cors-anywhere.herokuapp.com/${target}`,
+  ];
+}
+
+async function pfetch(url) {
+  const candidates = proxyUrls(url);
+  let lastErr = null;
+  for (const candidate of candidates) {
+    try {
+      const r = await fetch(candidate, {
+        signal: AbortSignal.timeout(6000),
+        headers: candidate === url ? {} : { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (!r.ok) continue;
+      const text = await r.text();
+      if (!text || text.trim() === '') continue;
+      // allorigins wraps in {contents: "..."}
+      if (text.trim().startsWith('{"contents"')) {
+        const wrapper = JSON.parse(text);
+        return JSON.parse(wrapper.contents);
+      }
+      return JSON.parse(text);
+    } catch(e) {
+      lastErr = e;
+      continue;
+    }
+  }
+  throw lastErr || new Error('all proxies failed');
+}
+
+// ─── MARKET CONFIG ────────────────────────────────────────────────────────────
+const MKTS = [
+  { slug:'us-x-iran-ceasefire-by',             label:'US × Iran ceasefire by Dec 31',        dir:'direct', vol:23400000, nt:false, curve:true,  link:'https://polymarket.com/event/us-x-iran-ceasefire-by' },
+  { slug:'iran-x-israelus-conflict-ends-by',    label:'Iran × Israel/US conflict ends Jun 30', dir:'direct', vol:3600000,  nt:false, sp:69,       link:'https://polymarket.com/event/iran-x-israelus-conflict-ends-by' },
+  { slug:'israel-x-iran-ceasefire-broken-by',   label:'Israel × Iran ceasefire broken Mar 31', dir:'invert', vol:5100000,  nt:true,  sp:0,        link:'https://polymarket.com/event/israel-x-iran-ceasefire-broken-by' },
+  { slug:'will-the-us-invade-iran-by-march-31', label:'US invades Iran by Mar 31',             dir:'invert', vol:2500000,  nt:true,             link:'https://polymarket.com/event/will-the-us-invade-iran-by-march-31' },
+  { slug:'us-iran-nuclear-deal-by-march-31',    label:'US–Iran nuclear deal by Mar 31',        dir:'direct', vol:1100000,  nt:true,             link:'https://polymarket.com/event/us-iran-nuclear-deal-by-march-31' },
+  { slug:'military-action-against-iran-ends-on',label:'Military action ends by Mar 29',        dir:'direct', vol:800000,   nt:true,             link:'https://polymarket.com/event/military-action-against-iran-ends-on' },
+];
+
+const IRAN_SLUGS = ['us-x-iran-ceasefire-by','iran-x-israelus-conflict-ends-by',
+  'will-the-us-invade-iran-by-march-31','us-iran-nuclear-deal-by-march-31',
+  'military-action-against-iran-ends-on','israel-x-iran-ceasefire-broken-by',
+  'iran-leadership-change-or-us-x-iran-ceasefire-first'];
+
+// Fallback snapshot — Mar 22, 2026 from Polymarket screenshot
+const FB = { raw:9, nt:12, bl:31, curve:[0,9,29,39,43,52,69] };
+
+const CLABELS = ['Mar 31','Apr 15','Apr 30','May 31','Jun 30','Dec 31'];
+const RSEC = 300;
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let pNT=null, pBL=null, pRaw=null, pCurve=null;
+let shAlerts=[], wAlerts=[];
+let seenTx=new Set(), trades=[];
+let chart=null, cdT=null, cd=RSEC, wThr=5000;
+
+// ─── SLIDER ──────────────────────────────────────────────────────────────────
+document.getElementById('thr').addEventListener('input', function(){
+  wThr = +this.value;
+  document.getElementById('thrV').textContent = wThr>=1000 ? '$'+(wThr/1000|0)+'K' : '$'+wThr;
+  renderWhales();
+});
+
+// ─── FETCH ODDS ──────────────────────────────────────────────────────────────
+async function fetchOdds() {
+  const res = [];
+  let live = 0;
+
+  for (const m of MKTS) {
+    try {
+      const data = await pfetch(`${GAMMA}/events?slug=${m.slug}&active=true`);
+      const ev = Array.isArray(data) && data.length ? data[0] : null;
+      let peace = m.sp !== undefined ? m.sp : null;
+      let raw = null, curve = null;
+
+      if (ev && ev.markets && ev.markets.length) {
+        if (m.curve && ev.markets.length > 1) {
+          curve = ev.markets.map(mk => {
+            if (!mk.outcomePrices) return null;
+            try { const p = JSON.parse(mk.outcomePrices); return Math.round(parseFloat(p[0])*100); }
+            catch(e) { return null; }
+          }).filter(x => x != null);
+          // Sort ascending: Mar 31 (smallest) → Dec 31 (largest)
+          curve = curve.sort((a,b) => a - b);
+          peace = curve.length ? Math.max(...curve) : (m.sp||null);
+          raw = peace;
+        } else {
+          const mk = ev.markets[0];
+          if (mk.outcomePrices) {
+            try {
+              const p = JSON.parse(mk.outcomePrices);
+              const yes = Math.round(parseFloat(p[0])*100);
+              raw = yes;
+              peace = m.dir === 'direct' ? yes : (100-yes);
+            } catch(e) {}
+          }
+        }
+        live++;
+      } else if (m.sp !== undefined) {
+        peace = m.sp;
+        raw = m.dir === 'direct' ? m.sp : (100-m.sp);
+      }
+      res.push({ ...m, peace, raw, curve, live: !!ev });
+    } catch(e) {
+      res.push({ ...m, peace: m.sp||null, raw: null, curve: null, live: false });
+    }
+  }
+
+  const cm = res.find(m => m.curve);
+  let rawMar31 = FB.raw;
+  let curveVals = [...FB.curve];
+
+  if (cm && cm.curve && cm.curve.length >= 6) {
+    const sorted = cm.curve.slice(-6); // already sorted ascending
+    curveVals = [0, ...sorted];
+    rawMar31 = sorted[0]; // Mar 31 = smallest value
+  }
+
+  const ntM = res.filter(m => m.nt && m.peace != null);
+  const ntV = ntM.reduce((s,m) => s+m.vol, 0);
+  const ntIdx = ntV ? Math.round(ntM.reduce((s,m) => s+(m.vol/ntV)*m.peace, 0)) : FB.nt;
+
+  const blM = res.filter(m => m.peace != null);
+  const blV = blM.reduce((s,m) => s+m.vol, 0);
+  const blIdx = blV ? Math.round(blM.reduce((s,m) => s+(m.vol/blV)*m.peace, 0)) : FB.bl;
+
+  // Shift detection
+  if (pRaw  != null && Math.abs(rawMar31-pRaw)>=2) addShift(rawMar31>pRaw?'up':'dn', `Raw Mar 31: ${rawMar31>pRaw?'+':''}${rawMar31-pRaw}% → ${rawMar31}%`);
+  if (pNT   != null && Math.abs(ntIdx-pNT)>=2)     addShift(ntIdx>pNT?'up':'dn',     `Near-term index: ${ntIdx>pNT?'+':''}${ntIdx-pNT}% → ${ntIdx}%`);
+  if (pBL   != null && Math.abs(blIdx-pBL)>=2)     addShift(blIdx>pBL?'up':'dn',     `Blended index: ${blIdx>pBL?'+':''}${blIdx-pBL}% → ${blIdx}%`);
+  if (pCurve != null) {
+    CLABELS.forEach((lbl,i) => {
+      const p=pCurve[i+1], c=curveVals[i+1];
+      if (p!=null && c!=null && Math.abs(c-p)>=2) addShift(c>p?'up':'dn', `${lbl}: ${c>p?'+':''}${c-p}% → ${c}%`);
+    });
+  }
+  pRaw=rawMar31; pNT=ntIdx; pBL=blIdx; pCurve=curveVals;
+
+  showBanner(live > 0 ? 'ok' : 'warn', live > 0
+    ? `Live data fetched · ${live}/${MKTS.length} markets updated`
+    : 'All proxies failed — showing last known values from Mar 22. Hit ↻ to retry.');
+
+  return { res, rawMar31, ntIdx, blIdx, curveVals, ntV: ntV||1, blV: blV||1, live };
+}
+
+// ─── FETCH WHALES ────────────────────────────────────────────────────────────
+async function fetchWhales() {
+  for (const slug of IRAN_SLUGS) {
+    try {
+      const data = await pfetch(`${DATA}/activity?eventSlug=${slug}&limit=50`);
+      if (!Array.isArray(data)) continue;
+      for (const t of data) {
+        if (!t.usdcSize || !t.transactionHash) continue;
+        const sz = parseFloat(t.usdcSize);
+        if (sz < 1000 || seenTx.has(t.transactionHash)) continue;
+        seenTx.add(t.transactionHash);
+        const tr = {
+          time: t.timestamp ? new Date(t.timestamp*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—',
+          tr2: t.timestamp||0,
+          mkt: t.title||slug, outcome: t.outcome||'—',
+          side: (t.side||'').toUpperCase(),
+          price: t.price ? Math.round(parseFloat(t.price)*100) : null,
+          size: Math.round(sz),
+          trader: t.pseudonym||t.name||ta(t.proxyWallet),
+          tx: t.transactionHash, fresh: true
+        };
+        trades.push(tr);
+        if (sz >= wThr) addWAlert(tr);
+      }
+    } catch(e) {}
+  }
+  trades = trades.sort((a,b) => b.tr2-a.tr2).slice(0,300);
+  setTimeout(() => trades.forEach(t => t.fresh=false), 8000);
+  const wc = trades.filter(t => t.size>=wThr).length;
+  document.getElementById('wPill').className = wc ? 'tag warn' : 'tag';
+  document.getElementById('wPill').textContent = `whales: ${wc}`;
+}
+
+const ta = a => a ? a.slice(0,6)+'…'+a.slice(-4) : 'anon';
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+const cc  = v => v<=20?'c-lo':v<=50?'c-mid':'c-hi';
+const chx = v => v<=20?'#ef4444':v<=50?'#f59e0b':'#10b981';
+
+function renderTop(raw,nt,bl,ntV,blV) {
+  document.getElementById('rawVal').textContent = raw+'%';
+  document.getElementById('rawVal').className = 'num c-lo';
+  document.getElementById('ntVal').textContent  = nt+'%';
+  document.getElementById('ntVal').className  = 'num '+cc(nt);
+  document.getElementById('ntM').textContent = MKTS.filter(m=>m.nt).length+' markets · $'+(ntV/1e6).toFixed(1)+'M';
+  document.getElementById('blVal').textContent  = bl+'%';
+  document.getElementById('blVal').className  = 'num '+cc(bl);
+  document.getElementById('blM').textContent = MKTS.length+' markets · $'+(blV/1e6).toFixed(1)+'M';
+}
+
+function renderCurve(vals) {
+  const ctx = document.getElementById('cc').getContext('2d');
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['Today',...CLABELS],
+      datasets: [{
+        data: vals, borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.06)',
+        borderWidth:2.5, fill:true, tension:0.35, spanGaps:true,
+        pointBackgroundColor: vals.map(v=>chx(v)),
+        pointRadius: c => c.dataIndex===0?0:5, pointHoverRadius:7
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1a1f26',borderColor:'rgba(255,255,255,.1)',borderWidth:1,
+          titleColor:'#9ca3af',bodyColor:'#e8eaed',
+          titleFont:{family:'DM Mono',size:11},bodyFont:{family:'DM Mono',size:12},
+          callbacks:{label:c=>c.raw!=null?'  ceasefire prob: '+c.raw+'%':null}
+        }
+      },
+      scales:{
+        y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:11,family:'DM Mono'},color:'#4b5563',stepSize:25},grid:{color:'rgba(255,255,255,.04)'}},
+        x:{ticks:{font:{size:11,family:'DM Mono'},color:c=>c.index===0?'#ef4444':'#4b5563',maxRotation:0,autoSkip:false},grid:{color:c=>c.index===0?'rgba(239,68,68,.15)':'rgba(255,255,255,.03)'}}
+      }
+    }
+  });
+}
+
+function renderStats(vals) {
+  const data = vals.slice(1);
+  document.getElementById('sg').innerHTML = CLABELS.map((lbl,i) => {
+    const v = data[i]??'—';
+    const prev = i===0?0:(data[i-1]??0);
+    const mg = typeof v==='number'?(i===0?'cumulative':`+${v-prev} pts`):'';
+    const hx = typeof v==='number'?chx(v):'#6b7280';
+    return `<div class="sc"><div class="sc-d">${lbl}</div>
+      <div class="sc-p" style="color:${hx}">${v}${typeof v==='number'?'%':''}</div>
+      <div class="sc-m">${mg}</div>
+      <div class="bt"><div class="bf" style="width:${typeof v==='number'?v:0}%;background:${hx}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderWhales() {
+  const f = trades.filter(t=>t.size>=wThr);
+  document.getElementById('wCount').textContent = f.length+' trades shown';
+  if (!f.length) { document.getElementById('wb').innerHTML=`<tr><td colspan="8" class="we">No trades above $${wThr.toLocaleString()} yet</td></tr>`; return; }
+  document.getElementById('wb').innerHTML = f.map(t => {
+    const sc = t.size>=25000?'sxl':t.size>=10000?'slg':'smd';
+    const sz = t.size>=1000?'$'+(t.size/1000).toFixed(1)+'K':'$'+t.size;
+    const ms = t.mkt.length>28?t.mkt.slice(0,28)+'…':t.mkt;
+    const tx = t.tx?`<a href="https://polygonscan.com/tx/${t.tx}" target="_blank" style="color:var(--muted);font-size:10px;text-decoration:none;border-bottom:1px dotted var(--dim)">tx↗</a>`:'—';
+    return `<tr class="${t.fresh?'nr':''}">
+      <td style="color:var(--muted);white-space:nowrap">${t.time}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.mkt}">${ms}</td>
+      <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.outcome}</td>
+      <td><span class="${t.side==='BUY'?'wy':'wn'}">${t.side==='BUY'?'▲ YES':'▼ NO'}</span></td>
+      <td class="r" style="color:var(--muted)">${t.price!=null?t.price+'¢':'—'}</td>
+      <td class="r"><span class="${sc}">${sz}</span></td>
+      <td style="color:var(--muted);font-size:11px">${t.trader}</td>
+      <td>${tx}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMkts(res,ntV,blV) {
+  document.getElementById('mb').innerHTML = res.filter(m=>m.peace!=null).map(m => {
+    const ntW = m.nt?((m.vol/ntV)*100).toFixed(1)+'%':'—';
+    const blW = ((m.vol/blV)*100).toFixed(1)+'%';
+    const rw = m.raw!=null?m.raw+'%':(m.sp!==undefined?m.sp+'%':'—');
+    const pc = m.peace<=20?'c-lo':m.peace<=50?'c-mid':'c-hi';
+    return `<tr>
+      <td><a href="${m.link}" target="_blank" style="color:var(--text);text-decoration:none;border-bottom:1px dotted var(--dim)">${m.label}</a>${m.nt?'<span class="ntb">NT</span>':''}<span class="blb">BL</span>${m.live?'':'<span style="font-size:10px;color:var(--dim);margin-left:3px">(static)</span>'}</td>
+      <td class="r" style="color:var(--muted)">$${(m.vol/1e6).toFixed(1)}M</td>
+      <td class="r" style="color:${m.nt?'var(--red)':'var(--dim)'}">${ntW}</td>
+      <td class="r" style="color:var(--amber)">${blW}</td>
+      <td class="r" style="color:var(--muted)">${rw}</td>
+      <td class="r">${m.dir==='direct'?'<span class="dd">direct</span>':'<span class="di">invert</span>'}</td>
+      <td class="r ${pc}">${m.peace}%</td>
+    </tr>`;
+  }).join('');
+}
+
+function addShift(dir,text) {
+  const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  shAlerts.unshift({dir,text,t}); if(shAlerts.length>20) shAlerts.pop();
+  document.getElementById('shLog').innerHTML = shAlerts.map(a=>
+    `<div class="li"><span class="lt">${a.t}</span><span class="lic">${a.dir==='up'?'▲':'▼'}</span><span class="lx ${a.dir==='up'?'up':'dn'}">${a.text}</span></div>`).join('');
+}
+
+function addWAlert(tr) {
+  const sz=tr.size>=1000?'$'+(tr.size/1000).toFixed(1)+'K':'$'+tr.size;
+  wAlerts.unshift({dir:tr.side==='BUY'?'up':'dn',text:`${tr.trader} · ${sz} ${tr.side==='BUY'?'YES':'NO'} · "${tr.outcome}" @ ${tr.price!=null?tr.price+'¢':'—'}`,t:tr.time});
+  if(wAlerts.length>30) wAlerts.pop();
+  document.getElementById('wLog').innerHTML = wAlerts.map(a=>
+    `<div class="li"><span class="lt">${a.t}</span><span class="lic">${a.dir==='up'?'▲':'▼'}</span><span class="lx ${a.dir==='up'?'up':'dn'}">${a.text}</span></div>`).join('');
+}
+
+function showBanner(type, msg) {
+  document.getElementById('warnBanner').style.display = 'none';
+  document.getElementById('okBanner').style.display   = 'none';
+  const el = document.getElementById(type==='ok'?'okBanner':'warnBanner');
+  el.textContent = msg; el.style.display = 'block';
+  if (type==='ok') setTimeout(()=>el.style.display='none', 4000);
+}
+
+function setSt(s,n) {
+  const el=document.getElementById('sPill');
+  if(s==='loading'){el.className='tag';el.textContent='fetching...';}
+  else if(s==='ok'){el.className='tag ok';el.textContent=`live · ${n}/${MKTS.length}`;}
+  else{el.className='tag err';el.textContent='proxy failed';}
+}
+
+function animLoad() {
+  const b=document.getElementById('lb'); b.style.width='0%';
+  setTimeout(()=>b.style.width='50%',100);
+  setTimeout(()=>b.style.width='82%',1000);
+  setTimeout(()=>{b.style.width='100%';setTimeout(()=>b.style.width='0%',300);},2200);
+}
+
+async function run() {
+  animLoad(); setSt('loading');
+  try {
+    await Promise.all([
+      fetchOdds().then(d => {
+        renderTop(d.rawMar31,d.ntIdx,d.blIdx,d.ntV,d.blV);
+        renderCurve(d.curveVals); renderStats(d.curveVals);
+        renderMkts(d.res,d.ntV,d.blV); setSt('ok',d.live);
+        document.getElementById('updTs').textContent='Updated '+new Date().toLocaleTimeString();
+        document.getElementById('fts').textContent='Last fetch: '+new Date().toLocaleString();
+      }),
+      fetchWhales().then(()=>renderWhales())
+    ]);
+  } catch(e) { setSt('err'); showBanner('warn','Fetch error: '+e.message+' · Hit ↻ to retry'); }
+}
+
+function startCd() {
+  cd=RSEC; clearInterval(cdT);
+  cdT=setInterval(async()=>{
+    cd--;
+    const m=Math.floor(cd/60),s=cd%60;
+    document.getElementById('cdPill').textContent=`${m}:${String(s).padStart(2,'0')}`;
+    if(cd<=0){clearInterval(cdT);await run();startCd();}
+  },1000);
+}
+
+run().then(()=>startCd());
+</script>
+</body>
+</html>
